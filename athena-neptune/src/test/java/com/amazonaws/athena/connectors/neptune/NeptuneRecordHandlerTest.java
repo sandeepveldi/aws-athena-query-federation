@@ -57,6 +57,7 @@ import org.slf4j.LoggerFactory;
 import java.io.ByteArrayInputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -143,89 +144,55 @@ public class NeptuneRecordHandlerTest {
             // avoid breaking the build but still have a useful tutorial. We are also
             // duplicateing this block
             // on purpose since this is a somewhat odd pattern.
-            logger.info(
-                    ": Tests are disabled, to enable them set the 'publishing' environment variable "
-                            + "using maven clean install -Dpublishing=true");
+            logger.info(": Tests are disabled, to enable them set the 'publishing' environment variable "
+                    + "using maven clean install -Dpublishing=true");
             return;
         }
 
         for (int i = 0; i < 2; i++) {
 
-            //Test contraints 
-            //1: find all airports with runways greater than 3
-            HashMap<String, ValueSet> constraintsMap = new HashMap<>();
-            constraintsMap.put("runways", 
-                    SortedRangeSet.copyOf(
-                        Types.MinorType.INT.getType(),
-                        ImmutableList.of(Range.greaterThan(allocator, Types.MinorType.INT.getType(),6)), false));
+            // Test contraints
 
-            // constraintsMap.put("runways", 
-            //         SortedRangeSet.copyOf(
-            //             Types.MinorType.INT.getType(),
-            //             ImmutableList.of(Range.lessThan(allocator, Types.MinorType.INT.getType(), 5)), false));
+            HashMap<String, ValueSet> constraintsMap = new HashMap<>();
+
+            // 1: find all airports with runways greater than 3
+            // constraintsMap.put("runways",
+            // SortedRangeSet.copyOf(Types.MinorType.INT.getType(),
+            // ImmutableList.of(Range.greaterThan(allocator, Types.MinorType.INT.getType(),
+            // 3)), false));
+
+            // constraintsMap.put("runways",
+            // SortedRangeSet.of(Range.greaterThan(allocator, Types.MinorType.INT.getType(),
+            // 3)));
+
+            // 2: find all airports with runways less than 6
+            // constraintsMap.put("runways",
+            // SortedRangeSet.copyOf(Types.MinorType.INT.getType(),
+            // ImmutableList.of(Range.lessThan(allocator, Types.MinorType.INT.getType(),
+            // 6)), false));
+
+            // simpler one
+            // constraintsMap.put("runways",
+            // SortedRangeSet.of(Range.lessThan(allocator, Types.MinorType.INT.getType(),
+            // 6)));
+
+            // 3: find all airports with runways greater than 2 and less than 7
+
+            Range greaterThan = Range.greaterThan(allocator, Types.MinorType.INT.getType(), 3);
+            Range lessThan = Range.lessThan(allocator, Types.MinorType.INT.getType(), 6);
+            Range lessThan1 = Range.lessThan(allocator, Types.MinorType.INT.getType(), 7);
+            Range greaterThan1 = Range.greaterThan(allocator, Types.MinorType.INT.getType(), 2);
+            constraintsMap.put("runways", SortedRangeSet.of(greaterThan,lessThan,lessThan1,greaterThan1));
 
             logger.info("testing constraint map: " + constraintsMap.toString());
 
-            /*
-            {runways=
-                SortedRangeSet{type=Int(32, true), nullAllowed=false, lowIndexedRanges={Marker{valueBlock=Int(32, true), nullValue=false, valueBlock=4, bound=ABOVE}=Range{low=Marker{valueBlock=Int(32, true), nullValue=false, valueBlock=4, bound=ABOVE}, high=Marker{valueBlock=Int(32, true), nullValue=false, valueBlock=6, bound=BELOW}}}}}
-            */
-            
-
-            /*
-
-            {
-                runways=
-                SortedRangeSet
-                {
-                    type=Int(32, true), nullAllowed=false, 
-                    lowIndexedRanges=
-                    {
-                        Marker
-                        {
-                            valueBlock=Int(32, true), nullValue=false, valueBlock=6, bound=ABOVE
-                        }=Range
-                            {
-                                low=Marker{valueBlock=Int(32, true), nullValue=false, valueBlock=6, bound=ABOVE}, 
-                                high=Marker{valueBlock=Int(32, true), nullValue=true, valueBlock=true, bound=BELOW}
-                            }
-                    }
-
-                }
-            }
-
-
-
-            {
-                runways=
-                SortedRangeSet
-                {   type=Int(32, true), nullAllowed=false, 
-                    lowIndexedRanges=
-                    {
-                        Marker
-                        {
-                            valueBlock=Int(32, true), nullValue=false, valueBlock=6, bound=ABOVE
-                        }=Range
-                            {
-                                low=Marker{valueBlock=Int(32, true), nullValue=false, valueBlock=6, bound=ABOVE}, 
-                                high=Marker{valueBlock=Int(32, true), nullValue=true, valueBlock=true, bound=BELOW}
-                            }
-                    }
-                }
-            }
-            */
 
             // read request for neptune request
-            ReadRecordsRequest request = new ReadRecordsRequest(
-                fakeIdentity(), 
-                "catalog",
-                "queryId-" + System.currentTimeMillis(), 
-                new TableName("graph-database", "airport"), 
-                schemaForRead,
-                Split.newBuilder(makeSpillLocation(), null).build(),
-                new Constraints(constraintsMap), 
-                100_000_000_000L, // 100GB don't expect this to spill
-                100_000_000_000L);
+            ReadRecordsRequest request = new ReadRecordsRequest(fakeIdentity(), "catalog",
+                    "queryId-" + System.currentTimeMillis(), new TableName("graph-database", "airport"), schemaForRead,
+                    Split.newBuilder(makeSpillLocation(), null).build(), new Constraints(constraintsMap),
+                    100_000_000_000L, // 100GB don't expect this to spill
+                    100_000_000_000L);
 
             // internally calls readRecorsWithContrains
             RecordResponse rawResponse = handler.doReadRecords(allocator, request);
@@ -241,17 +208,17 @@ public class NeptuneRecordHandlerTest {
 
     private byte[] getFakeObject() throws UnsupportedEncodingException {
         StringBuilder sb = new StringBuilder();
-        sb.append("2017,11,1,2122792308,1755604178,false,0UTIXoWnKqtQe8y+BSHNmdEXmWfQalRQH60pobsgwws=\n");
-        sb.append("2017,11,1,2030248245,747575690,false,i9AoMmLI6JidPjw/SFXduBB6HUmE8aXQLMhekhIfE1U=\n");
-        sb.append("2017,11,1,23301515,1720603622,false,HWsLCXAnGFXnnjD8Nc1RbO0+5JzrhnCB/feJ/EzSxto=\n");
-        sb.append("2017,11,1,1342018392,1167647466,false,lqL0mxeOeEesRY7EU95Fi6QEW92nj2mh8xyex69j+8A=\n");
-        sb.append("2017,11,1,945994127,1854103174,true,C57VAyZ6Y0C+xKA2Lv6fOcIP0x6Px8BlEVBGSc74C4I=\n");
-        sb.append("2017,11,1,1102797454,2117019257,true,oO0S69X+N2RSyEhlzHguZSLugO8F2cDVDpcAslg0hhQ=\n");
-        sb.append("2017,11,1,862601609,392155621,true,L/Wpz4gHiRR7Sab1RCBrp4i1k+0IjUuJAV/Yn/7kZnc=\n");
-        sb.append("2017,11,1,1858905353,1131234096,false,w4R3N+vN/EcwrWP7q/h2DwyhyraM1AwLbCbe26a+mQ0=\n");
-        sb.append("2017,11,1,1300070253,247762646,false,cjbs6isGO0K7ib1D65VbN4lZEwQv2Y6Q/PoFZhyyacA=\n");
-        sb.append("2017,11,1,843851309,1886346292,true,sb/xc+uoe/ZXRXTYIv9OTY33Rj+zSS96Mj/3LVPXvRM=\n");
-        sb.append("2017,11,1,2013370128,1783091056,false,9MW9X3OUr40r4B/qeLz55yJIrvw7Gdk8RWUulNadIyw=\n");
+        // sb.append("2017,11,1,2122792308,1755604178,false,0UTIXoWnKqtQe8y+BSHNmdEXmWfQalRQH60pobsgwws=\n");
+        // sb.append("2017,11,1,2030248245,747575690,false,i9AoMmLI6JidPjw/SFXduBB6HUmE8aXQLMhekhIfE1U=\n");
+        // sb.append("2017,11,1,23301515,1720603622,false,HWsLCXAnGFXnnjD8Nc1RbO0+5JzrhnCB/feJ/EzSxto=\n");
+        // sb.append("2017,11,1,1342018392,1167647466,false,lqL0mxeOeEesRY7EU95Fi6QEW92nj2mh8xyex69j+8A=\n");
+        // sb.append("2017,11,1,945994127,1854103174,true,C57VAyZ6Y0C+xKA2Lv6fOcIP0x6Px8BlEVBGSc74C4I=\n");
+        // sb.append("2017,11,1,1102797454,2117019257,true,oO0S69X+N2RSyEhlzHguZSLugO8F2cDVDpcAslg0hhQ=\n");
+        // sb.append("2017,11,1,862601609,392155621,true,L/Wpz4gHiRR7Sab1RCBrp4i1k+0IjUuJAV/Yn/7kZnc=\n");
+        // sb.append("2017,11,1,1858905353,1131234096,false,w4R3N+vN/EcwrWP7q/h2DwyhyraM1AwLbCbe26a+mQ0=\n");
+        // sb.append("2017,11,1,1300070253,247762646,false,cjbs6isGO0K7ib1D65VbN4lZEwQv2Y6Q/PoFZhyyacA=\n");
+        // sb.append("2017,11,1,843851309,1886346292,true,sb/xc+uoe/ZXRXTYIv9OTY33Rj+zSS96Mj/3LVPXvRM=\n");
+        // sb.append("2017,11,1,2013370128,1783091056,false,9MW9X3OUr40r4B/qeLz55yJIrvw7Gdk8RWUulNadIyw=\n");
         return sb.toString().getBytes("UTF-8");
     }
 
