@@ -133,16 +133,10 @@ public class Range implements AutoCloseable {
     }
 
     public Range span(Range other) {
-        // Marker lowMarker = Marker.min(low, other.getLow());
-        // Marker highMarker = Marker.max(high, other.getHigh());
-        // return new Range(lowMarker, highMarker);
 
-        Marker lowMarker = null;
-        Marker highMarker = null;
-
-        lowMarker = low.isNullValue() ? other.getLow() : Marker.min(low, other.getLow());
-        highMarker = other.getHigh().isNullValue() ? high : Marker.max(high, other.getHigh());
-
+        Marker lowMarker = low.isNullValue() ? other.getLow() : Marker.min(low, other.getLow());
+        Marker highMarker = other.getHigh().isNullValue() ? high : Marker.max(high, other.getHigh());
+        
         return new Range(lowMarker, highMarker);
     }
 
