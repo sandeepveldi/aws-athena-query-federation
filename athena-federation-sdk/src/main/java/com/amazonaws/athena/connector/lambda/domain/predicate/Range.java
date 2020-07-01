@@ -31,20 +31,16 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Defines a range whose boundaries are defined by two Markers (e.g. low and high). This is helpful when you want
- * to express a constraint as column between X and Z.
+ * Defines a range whose boundaries are defined by two Markers (e.g. low and
+ * high). This is helpful when you want to express a constraint as column
+ * between X and Z.
  */
-public class Range
-        implements AutoCloseable
-{
+public class Range implements AutoCloseable {
     private final Marker low;
     private final Marker high;
 
     @JsonCreator
-    public Range(
-            @JsonProperty("low") Marker low,
-            @JsonProperty("high") Marker high)
-    {
+    public Range(@JsonProperty("low") Marker low, @JsonProperty("high") Marker high) {
         requireNonNull(low, "low value is null");
         requireNonNull(high, "high value is null");
         if (!low.getType().equals(high.getType())) {
@@ -64,69 +60,58 @@ public class Range
         this.high = high;
     }
 
-    public static Range all(BlockAllocator allocator, ArrowType type)
-    {
+    public static Range all(BlockAllocator allocator, ArrowType type) {
         return new Range(Marker.lowerUnbounded(allocator, type), Marker.upperUnbounded(allocator, type));
     }
 
-    public static Range greaterThan(BlockAllocator allocator, ArrowType type, Object low)
-    {
+    public static Range greaterThan(BlockAllocator allocator, ArrowType type, Object low) {
         return new Range(Marker.above(allocator, type, low), Marker.upperUnbounded(allocator, type));
     }
 
-    public static Range greaterThanOrEqual(BlockAllocator allocator, ArrowType type, Object low)
-    {
+    public static Range greaterThanOrEqual(BlockAllocator allocator, ArrowType type, Object low) {
         return new Range(Marker.exactly(allocator, type, low), Marker.upperUnbounded(allocator, type));
     }
 
-    public static Range lessThan(BlockAllocator allocator, ArrowType type, Object high)
-    {
+    public static Range lessThan(BlockAllocator allocator, ArrowType type, Object high) {
         return new Range(Marker.lowerUnbounded(allocator, type), Marker.below(allocator, type, high));
     }
 
-    public static Range lessThanOrEqual(BlockAllocator allocator, ArrowType type, Object high)
-    {
+    public static Range lessThanOrEqual(BlockAllocator allocator, ArrowType type, Object high) {
         return new Range(Marker.lowerUnbounded(allocator, type), Marker.exactly(allocator, type, high));
     }
 
-    public static Range equal(BlockAllocator allocator, ArrowType type, Object value)
-    {
+    public static Range equal(BlockAllocator allocator, ArrowType type, Object value) {
         return new Range(Marker.exactly(allocator, type, value), Marker.exactly(allocator, type, value));
     }
 
-    public static Range range(BlockAllocator allocator, ArrowType type, Object low, boolean lowInclusive, Object high, boolean highInclusive)
-    {
+    public static Range range(BlockAllocator allocator, ArrowType type, Object low, boolean lowInclusive, Object high,
+            boolean highInclusive) {
         Marker lowMarker = lowInclusive ? Marker.exactly(allocator, type, low) : Marker.above(allocator, type, low);
         Marker highMarker = highInclusive ? Marker.exactly(allocator, type, high) : Marker.below(allocator, type, high);
         return new Range(lowMarker, highMarker);
     }
 
-    public ArrowType getType()
-    {
+    public ArrowType getType() {
         return low.getType();
     }
 
     @JsonProperty
-    public Marker getLow()
-    {
+    public Marker getLow() {
         return low;
     }
 
     @JsonProperty
-    public Marker getHigh()
-    {
+    public Marker getHigh() {
         return high;
     }
 
     @Transient
-    public boolean isSingleValue()
-    {
+    public boolean isSingleValue() {
         return low.getBound() == Marker.Bound.EXACTLY && low.equals(high);
     }
 
     @Transient
-    public Object getSingleValue()
-    {
+    public Object getSingleValue() {
         if (!isSingleValue()) {
             throw new IllegalStateException("Range does not have just a single value");
         }
@@ -134,39 +119,38 @@ public class Range
     }
 
     @Transient
-    public boolean isAll()
-    {
+    public boolean isAll() {
         return low.isLowerUnbounded() && high.isUpperUnbounded();
     }
 
-    public boolean includes(ValueMarker marker)
-    {
+    public boolean includes(ValueMarker marker) {
         requireNonNull(marker, "marker is null");
         return low.compareTo(marker) <= 0 && high.compareTo(marker) >= 0;
     }
 
-    public boolean contains(Range other)
-    {
-        return this.getLow().compareTo(other.getLow()) <= 0 &&
-                this.getHigh().compareTo(other.getHigh()) >= 0;
+    public boolean contains(Range other) {
+        return this.getLow().compareTo(other.getLow()) <= 0 && this.getHigh().compareTo(other.getHigh()) >= 0;
     }
 
-    public Range span(Range other)
-    {
-        Marker lowMarker = Marker.min(low, other.getLow());
-        Marker highMarker = Marker.max(high, other.getHigh());
+    public Range span(Range other) {
+        // Marker lowMarker = Marker.min(low, other.getLow());
+        // Marker highMarker = Marker.max(high, other.getHigh());
+        // return new Range(lowMarker, highMarker);
+
+        Marker lowMarker = null;
+        Marker highMarker = null;
+
+        lowMarker = low.isNullValue() ? other.getLow() : Marker.min(low, other.getLow());
+        highMarker = other.getHigh().isNullValue() ? high : Marker.max(high, other.getHigh());
 
         return new Range(lowMarker, highMarker);
     }
 
-    public boolean overlaps(Range other)
-    {
-        return this.getLow().compareTo(other.getHigh()) <= 0 &&
-                other.getLow().compareTo(this.getHigh()) <= 0;
+    public boolean overlaps(Range other) {
+        return this.getLow().compareTo(other.getHigh()) <= 0 && other.getLow().compareTo(this.getHigh()) <= 0;
     }
 
-    public Range intersect(Range other)
-    {
+    public Range intersect(Range other) {
         if (!this.overlaps(other)) {
             throw new IllegalArgumentException("Cannot intersect non-overlapping ranges");
         }
@@ -176,14 +160,12 @@ public class Range
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(low, high);
     }
 
     @Override
-    public boolean equals(Object obj)
-    {
+    public boolean equals(Object obj) {
         if (this == obj) {
             return true;
         }
@@ -191,23 +173,16 @@ public class Range
             return false;
         }
         final Range other = (Range) obj;
-        return Objects.equals(this.low, other.low) &&
-                Objects.equals(this.high, other.high);
+        return Objects.equals(this.low, other.low) && Objects.equals(this.high, other.high);
     }
 
     @Override
-    public String toString()
-    {
-        return com.google.common.base.MoreObjects.toStringHelper(this)
-                .add("low", low)
-                .add("high", high)
-                .toString();
+    public String toString() {
+        return com.google.common.base.MoreObjects.toStringHelper(this).add("low", low).add("high", high).toString();
     }
 
     @Override
-    public void close()
-            throws Exception
-    {
+    public void close() throws Exception {
         low.close();
         high.close();
     }
